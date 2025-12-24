@@ -21,9 +21,9 @@ st.markdown("""
     /* 상단 헤더 숨기기 (옵션) */
     header {visibility: hidden;}
     
-    /* 메인 컨테이너 상단 여백 제거 */
+    /* 메인 컨테이너 상단 여백 제거 (최소화: 1rem -> 0.1rem) */
     .block-container {
-        padding-top: 1rem !important;
+        padding-top: 0.1rem !important;
         padding-bottom: 0rem !important;
     }
     
@@ -103,8 +103,9 @@ custom_css = """
     [data-testid="stRadio"] > div {
         display: flex;
         justify-content: center;
-        gap: 30px; /* 메뉴 사이 간격 넓게 */
+        gap: 20px; /* 메뉴 사이 간격 축소 (30 -> 20) */
         background-color: transparent;
+        margin-top: -10px; /* 위쪽 여백 강제 축소 */
     }
 
     /* 2. 라디오 버튼의 '원(Circle)' 숨기기 - 이게 핵심 */
@@ -117,7 +118,7 @@ custom_css = """
         background-color: transparent !important;
         border: none !important;
         cursor: pointer !important;
-        padding: 5px 10px !important;
+        padding: 0px 5px !important; /* 패딩 축소 */
         transition: all 0.2s;
     }
     
@@ -127,9 +128,9 @@ custom_css = """
         color: #000040 !important;
     }
 
-    /* 5. 텍스트 폰트 설정 (24px, Bold) */
+    /* 5. 텍스트 폰트 설정 (축소: 24px -> 25px, Bold) */
     [data-testid="stRadio"] p {
-        font-size: 24px !important;
+        font-size: 25px !important;
         font-weight: bold !important;
         color: #888888; /* 기본은 회색 */
     }
@@ -239,42 +240,63 @@ df = process_data(df_raw)
 
 # --- Navigation (Top Bar) ---
 
-# 레이아웃 조정: 좌측(로고) - 중앙(메뉴) - 우측(계정)
-# 중앙 정렬을 위해 비율 배분
-header_col1, header_col2, header_col3 = st.columns([0.3, 0.45, 0.25])
+# 레이아웃 조정: 좌측(로고+타이틀) - 중앙(메뉴) - 우측(계정)
+# 중앙 정렬을 위해 비율 배분 (타이틀 길이 고려하여 좌우 비율 조정)
+header_col1, header_col2, header_col3 = st.columns([0.35, 0.3, 0.35])
+
+# 로고 base64 인코딩 함수 (이미지 broken 방지)
+import base64
+def get_base64_of_bin_file(bin_file):
+    with open(bin_file, 'rb') as f:
+        return base64.b64encode(f.read()).decode()
+
+logo_path = "assets/logo.png"
+logo_html = ""
+if os.path.exists(logo_path):
+    logo_base64 = get_base64_of_bin_file(logo_path)
+    logo_html = f'<img src="data:image/png;base64,{logo_base64}" width="70" style="vertical-align: middle;">'
+else:
+    logo_html = "⚽"
 
 with header_col1:
     # 로고와 타이틀
-    c_img, c_txt = st.columns([0.25, 0.75]) 
-    with c_img:
-        if os.path.exists("assets/logo.png"):
-            st.image("assets/logo.png", width=70) # 너비 약간 조정
-        else:
-            st.write("⚽")
-    with c_txt:
-        # 타이틀 (26px)
-        st.markdown("<h3 style='margin: 10px 0 0 -10px; font-size: 26px; white-space: nowrap;'><b>K League Youth Data Platform</b></h3>", unsafe_allow_html=True)
+    # st.image 대신 HTML로 직접 렌더링하여 패딩/마진 제어
+    # Flexbox를 사용하여 수직 중앙 정렬
+    st.markdown(f"""
+    <div style="display: flex; align-items: center; height: 60px;">
+        <div style="margin-right: 15px;">{logo_html}</div>
+        <div style="font-size: 35px; font-weight: bold; white-space: nowrap; line-height: 1;">
+            K League Youth Data Platform
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
 with header_col2:
-    # 중앙 메뉴 (배너 스타일, 24px)
-    # 라디오 버튼의 동그라미를 숨기고 텍스트만 표시하여 탭처럼 구현
-    st.markdown("<div style='padding-top: 5px;'></div>", unsafe_allow_html=True)
+    # 중앙 메뉴 (25px)
+    # 수직 정렬: 타이틀(35px)과 시각적 중심을 맞춤
+    # 타이틀이 커졌으므로 메뉴의 padding-top을 미세 조정 (12px -> 14px)
+    st.markdown("<div style='padding-top: 14px;'></div>", unsafe_allow_html=True)
     selected_tab = st.radio("Nav", ["K League", "Team", "Insight"], horizontal=True, label_visibility="collapsed")
 
 with header_col3:
-    # 우측 계정 정보
-    st.markdown("<div style='text-align: right; padding-top: 15px;'>", unsafe_allow_html=True)
-    st.markdown(f"""
-        <span style='font-size: 14px; color: #555; margin-right: 15px;'>
-            👤 <b>Admin</b> (Team1234)
-        </span>
-        <button style='
-            background-color: transparent; border: 1px solid #ccc; border-radius: 4px; 
-            padding: 5px 10px; cursor: pointer; font-size: 12px;'>
-            ⚙️ 설정
-        </button>
-    </div>
-    """, unsafe_allow_html=True)
+    # 우측 계정 정보 (더 오른쪽으로 이동)
+    # Spacer | User | Button 배분
+    col_space, col_user, col_set = st.columns([0.2, 0.6, 0.2])
+    
+    # 텍스트 수직 위치 조정 (폰트 14px)
+    # 타이틀 높이(60px) 고려하여 중앙 정렬 느낌 (padding-top: 22px)
+    col_user.markdown("<div style='text-align:right; font-size:14px; padding-top:22px;'>👤 Admin (Team1234)</div>", unsafe_allow_html=True)
+    
+    # 버튼 위치 조정
+    st.markdown("""
+        <style>
+        div.stButton > button:first-child {
+            margin-top: 12px; 
+            height: 35px; /* 버튼 높이 고정 (선택 사항) */
+        }
+        </style>
+        """, unsafe_allow_html=True)
+    col_set.button("⚙️", key="settings_btn", help="Account Settings")
 
 st.markdown("---") # 헤더와 본문 구분선
 
@@ -283,11 +305,12 @@ st.markdown("---") # 헤더와 본문 구분선
 # ==========================================
 if selected_tab == "K League":
     # --- Filter Section ---
-    with st.expander("🔻 Search Filters", expanded=True):
+    # 기본적으로 접혀있도록 expanded=False 설정
+    with st.expander("🔻 Search Filters", expanded=False):
         with st.form("kleague_filter_form"):
-            c1, c2, c3, c4, c5 = st.columns(5)
-            
-            # Helper to add "Select All" logic implicitly (Empty = All)
+            # 가로 배치: Test ID | Team | Under | Birth Year | Grade | Apply
+            # 비율 조정: 버튼은 작게
+            c1, c2, c3, c4, c5, c6 = st.columns([1, 1, 1, 1, 1, 0.5])
             
             # 1. Test_ID
             test_ids = sorted([x for x in df['Test_ID'].unique() if pd.notna(x)])
@@ -297,26 +320,25 @@ if selected_tab == "K League":
             teams = sorted([x for x in df['Team'].unique() if pd.notna(x)])
             sel_team = c2.multiselect("Team", teams)
             
-            # 3. Under (U18, etc - needs explicit col check if exists, assuming 'Under' exists)
+            # 3. Under
             unders = []
             if 'Under' in df.columns:
                 unders = sorted([x for x in df['Under'].unique() if pd.notna(x)])
             sel_under = c3.multiselect("Under", unders)
             
-            # 4. Birth_date (Year range)
-            # Date range picker for birth date is specific. 
-            # Let's use Year range for simplicity or allow Date Input
-            min_date = df['Birth_Date'].min() if 'Birth_Date' in df.columns else None
-            max_date = df['Birth_Date'].max() if 'Birth_Date' in df.columns else None
-            sel_birth_date = c4.date_input("Birth Date Range", value=[]) # Empty by default
+            # 4. Birth Year (변경: Date Input -> Multiselect)
+            birth_years = sorted([x for x in df['Birth_Year_Int'].unique() if x > 0])
+            sel_birth_year = c4.multiselect("Birth Year", birth_years)
             
             # 5. Grade
             grades = sorted([x for x in df['Grade'].unique() if pd.notna(x)])
             sel_grade = c5.multiselect("Grade", grades)
             
-            # 6. Apply Button
-            col_apply = st.columns([6, 1])
-            submitted = col_apply[1].form_submit_button("적용 (Apply)", type="primary")
+            # 6. Apply Button (Grade 오른쪽에 배치)
+            # 수직 정렬을 맞추기 위해 빈 공간 추가 (st.write("")로 조절하거나 Label을 안보이게 처리)
+            c6.write("") 
+            c6.write("")
+            submitted = c6.form_submit_button("Apply", type="primary", use_container_width=True)
 
     # --- Filter Logic ---
     df_filtered = df.copy()
@@ -329,14 +351,9 @@ if selected_tab == "K League":
             df_filtered = df_filtered[df_filtered['Under'].isin(sel_under)]
         if sel_grade:
             df_filtered = df_filtered[df_filtered['Grade'].isin(sel_grade)]
-        # Birth Date Logic (if range selected)
-        if isinstance(sel_birth_date, tuple) and len(sel_birth_date) == 2:
-            start_d, end_d = sel_birth_date
-            # Ensure proper datetime comparison
-            df_filtered = df_filtered[
-                (df_filtered['Birth_Date'].dt.date >= start_d) & 
-                (df_filtered['Birth_Date'].dt.date <= end_d)
-            ]
+        # Birth Year Logic
+        if sel_birth_year:
+            df_filtered = df_filtered[df_filtered['Birth_Year_Int'].isin(sel_birth_year)]
 
     # --- Dashboard Layout (Top) ---
     st.markdown("Results Found: **{}** Players".format(df_filtered['Player'].nunique()))
@@ -355,7 +372,7 @@ if selected_tab == "K League":
         # [1번 차트] 전체 측정선수 수 (좌측)
         with col_left:
             # 개별 border 제거
-            st.markdown("<div class='chart-title' style='margin-bottom: 10px;'>1. 전체 측정선수 수</div>", unsafe_allow_html=True)
+            st.markdown("<div class='chart-title' style='margin-bottom: 10px;'>전체 측정선수 수</div>", unsafe_allow_html=True)
             
             total_players = df_filtered['Player'].nunique()
             grade_counts = df_filtered.groupby('Grade')['Player'].nunique().reset_index()
@@ -364,21 +381,21 @@ if selected_tab == "K League":
 
             fig1 = px.pie(grade_counts, values='Player', names='Grade', hole=0.6)
             fig1.update_layout(
-                annotations=[dict(text=str(total_players), x=0.5, y=0.5, font_size=40, showarrow=False)],
+                annotations=[dict(text=str(total_players), x=0.5, y=0.5, font_size=24, showarrow=False)], # 폰트 사이즈 축소
                 showlegend=True,
-                margin=dict(t=20, b=20, l=20, r=20),
-                height=500 # 높이 유지
+                margin=dict(t=10, b=10, l=10, r=10),
+                height=300 # 높이 조정 (350 -> 300)
             )
             st.plotly_chart(fig1, use_container_width=True)
 
         # [중앙 구분선]
         with col_sep:
-            # 높이 500px 정도의 수직선 그리기
+            # 높이 조정 (360 -> 310)
             st.markdown(
                 """
                 <div style='
                     border-left: 1px solid #e0e0e0; 
-                    height: 520px; 
+                    height: 310px; 
                     margin: auto; 
                     width: 1px;
                 '></div>
@@ -391,7 +408,7 @@ if selected_tab == "K League":
             
             # [2번] RAE
             # 개별 border 제거
-            st.markdown("<div class='chart-title' style='margin-bottom: 5px;'>2. Relative Age Effect (RAE)</div>", unsafe_allow_html=True)
+            st.markdown("<div class='chart-title' style='margin-bottom: 5px; font-size: 14px;'>Relative Age Effect (RAE)</div>", unsafe_allow_html=True)
             
             if not df_filtered.empty and 'Birth_Year_Int' in df_filtered.columns and 'Birth_Quarter' in df_filtered.columns:
                 rae_df = df_filtered[df_filtered['Birth_Year_Int'] > 0]
@@ -402,24 +419,26 @@ if selected_tab == "K League":
                     rae_pivot = rae_df.groupby(['Birth_Quarter', 'Birth_Year_Int'])['Player'].nunique().reset_index()
                     rae_pivot = rae_pivot.pivot(index='Birth_Quarter', columns='Birth_Year_Int', values='Player').fillna(0).astype(int)
                     
-                    # 인덱스 이름 변경
-                    rae_pivot.index = ['Q' + str(i) for i in rae_pivot.index]
+                    # 인덱스 이름 변경 (1.0 -> 1 -> Q1)
+                    # int 변환 후 str 변환으로 소수점 제거
+                    rae_pivot.index = ['Q' + str(int(i)) for i in rae_pivot.index]
                     
                     max_val = rae_pivot.max().max()
                     
                     # HTML 테이블 생성
+                    # 높이 축소를 위해 td height 조정 (30px -> 22px)
                     html = """
                     <style>
-                        .rae-table { width: 100%; border-collapse: collapse; font-size: 14px; text-align: left; }
-                        .rae-table th { background-color: #f0f2f6; padding: 8px; border-bottom: 2px solid #ddd; font-weight: bold; text-align: center;}
-                        .rae-table td { padding: 5px; border-bottom: 1px solid #eee; position: relative; vertical-align: middle; height: 30px;}
-                        .rae-bar-bg { position: absolute; top: 10%; left: 0; height: 80%; opacity: 0.3; z-index: 0; border-radius: 3px; }
+                        .rae-table { width: 100%; border-collapse: collapse; font-size: 12px; text-align: left; }
+                        .rae-table th { background-color: #f0f2f6; padding: 4px; border-bottom: 2px solid #ddd; font-weight: bold; text-align: center;}
+                        .rae-table td { padding: 2px; border-bottom: 1px solid #eee; position: relative; vertical-align: middle; height: 20px;}
+                        .rae-bar-bg { position: absolute; top: 15%; left: 0; height: 70%; opacity: 0.3; z-index: 0; border-radius: 2px; }
                         .rae-val { position: relative; z-index: 1; padding-left: 5px; font-weight: 500;}
                     </style>
                     <table class="rae-table">
                         <thead>
                             <tr>
-                                <th style="width: 50px;"></th>
+                                <th style="width: 35px;"></th>
                     """
                     for col in rae_pivot.columns:
                         html += f"<th>{col}</th>"
@@ -443,7 +462,8 @@ if selected_tab == "K League":
                     html += "</tbody></table>"
                     
                     # border=False 설정 (스크롤 컨테이너는 유지하되 박스는 안 보이게)
-                    with st.container(height=250, border=False):
+                    # 높이 축소 (160 -> 140)
+                    with st.container(height=140, border=False):
                         st.markdown(html, unsafe_allow_html=True)
                 else:
                     st.info("No Data for RAE (Filtered)")
@@ -454,47 +474,81 @@ if selected_tab == "K League":
 
             # [3번] 신체성숙도 (Maturity)
             # 개별 border 제거
-            st.markdown("<div class='chart-title' style='margin-bottom: 5px;'>3. 신체성숙도 (APHV)</div>", unsafe_allow_html=True)
+            st.markdown("<div class='chart-title' style='margin-bottom: 5px; font-size: 14px;'>신체성숙도 (APHV)</div>", unsafe_allow_html=True)
             
             if 'APHV' in df_filtered.columns and not df_filtered.empty:
+                # [복구] 중복 제거 없이(또는 값 기준 중복 제거만) 모든 데이터 표시 요청
                 aphv_df = df_filtered[['Player', 'APHV']].drop_duplicates().dropna()
                 
                 def get_aphv_color(val):
-                    if val < 13.1: return 'Early (<13.1)'
-                    elif val <= 15.1: return 'Average (13.1-15.1)'
-                    else: return 'Late (>15.1)'
+                    if val < 13.1: return 'Early'
+                    elif val <= 15.1: return 'Average'
+                    else: return 'Late'
                 
                 aphv_df['Category'] = aphv_df['APHV'].apply(get_aphv_color)
+                
+                # 통계 계산
+                early_count = aphv_df[aphv_df['Category'] == 'Early'].shape[0]
+                avg_count = aphv_df[aphv_df['Category'] == 'Average'].shape[0]
+                late_count = aphv_df[aphv_df['Category'] == 'Late'].shape[0]
+                
+                # 위치 계산 (Annotation용) - 고객 요청에 따른 구간 중간값 고정
+                # 1. Early: 11.8 ~ 13.1 -> (11.8 + 13.1) / 2 = 12.45
+                # 2. Average: 13.1 ~ 15.1 -> (13.1 + 15.1) / 2 = 14.1
+                # 3. Late: 15.1 ~ 15.5 -> (15.1 + 15.5) / 2 = 15.3
+                early_pos = 12.45
+                avg_pos = 14.1
+                late_pos = 15.3
                 
                 fig3 = px.strip(
                     aphv_df, x="APHV", color="Category",
                     color_discrete_map={
-                        'Early (<13.1)': '#ff4b4b',
-                        'Average (13.1-15.1)': '#20c997',
-                        'Late (>15.1)': '#fcc419'
+                        'Early': '#d62728',   # Red
+                        'Average': '#4db6ac', # Teal
+                        'Late': '#f4c150'     # Yellow
                     },
                     stripmode='overlay'
                 )
                 
-                fig3.add_vline(x=13.1, line_dash="dash", line_color="gray", annotation_text="13.1")
-                fig3.add_vline(x=15.1, line_dash="dash", line_color="gray", annotation_text="15.1")
+                # 수직선 (Reference Lines)
+                fig3.add_vline(x=13.1, line_width=1, line_color="#333")
+                fig3.add_vline(x=15.1, line_width=1, line_color="#333")
                 
+                # 텍스트 및 카운트 어노테이션 (이미지 참조)
+                annotations = []
+                
+                # 1. Early
+                if early_count > 0:
+                    annotations.append(dict(x=early_pos, y=0.55, text=f"{early_count}명", showarrow=False, font=dict(color='#d62728', size=12, weight='bold')))
+                    annotations.append(dict(x=early_pos, y=-0.55, text="Early", showarrow=False, font=dict(color='#d62728', size=12, weight='bold')))
+
+                # 2. Average
+                if avg_count > 0:
+                    annotations.append(dict(x=avg_pos, y=0.55, text=f"{avg_count}명", showarrow=False, font=dict(color='#4db6ac', size=12, weight='bold')))
+                    annotations.append(dict(x=avg_pos, y=-0.55, text="Average", showarrow=False, font=dict(color='#4db6ac', size=12, weight='bold')))
+                    
+                # 3. Late
+                if late_count > 0:
+                    annotations.append(dict(x=late_pos, y=0.55, text=f"{late_count}명", showarrow=False, font=dict(color='#f4c150', size=12, weight='bold')))
+                    annotations.append(dict(x=late_pos, y=-0.55, text="Late", showarrow=False, font=dict(color='#f4c150', size=12, weight='bold')))
+                
+                # 기준선 텍스트 (13.1, 15.1) - 라인 아래쪽
+                annotations.append(dict(x=13.15, y=-0.8, text="13.1", showarrow=False, xanchor="left", font=dict(size=9, color="black")))
+                annotations.append(dict(x=15.15, y=-0.8, text="15.1", showarrow=False, xanchor="left", font=dict(size=9, color="black")))
+
                 fig3.update_layout(
-                    height=190, 
-                    margin=dict(t=30, b=10, l=10, r=10),
-                    showlegend=True,
-                    yaxis=dict(visible=False),
-                    xaxis=dict(title="APHV (Years)"),
-                    legend=dict(
-                        orientation="h", 
-                        yanchor="bottom", 
-                        y=1.02, 
-                        xanchor="right", 
-                        x=1,
-                        title=None
-                    ) 
+                    height=130, # 높이 조정 (190 -> 150 -> 130)
+                    margin=dict(t=20, b=10, l=10, r=10), # 여백 미세 조정
+                    showlegend=False, # 범례 숨김 (어노테이션으로 대체)
+                    yaxis=dict(visible=False, range=[-1, 1]), # Y축 숨기고 Range 설정하여 텍스트 공간 확보
+                    xaxis=dict(visible=False, range=[11.8, 15.5]), # X축 숨김 및 범위 고정
+                    annotations=annotations,
+                    plot_bgcolor='white'
                 )
-                fig3.update_traces(jitter=0.5) 
+                
+                # Bar 스타일과 유사하게 보이도록 Strip plot 설정
+                fig3.update_traces(jitter=0.5, opacity=0.8, marker=dict(size=8, line=dict(width=0))) 
+                
                 st.plotly_chart(fig3, use_container_width=True)
             else:
                 st.info("No APHV Data")

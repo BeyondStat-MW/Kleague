@@ -553,6 +553,211 @@ if selected_tab == "K League":
             else:
                 st.info("No APHV Data")
 
+    st.write("") # 간격 추가
+
+    # ==========================================
+    # Middle Section: Physical Metrics (Body Profile)
+    # ==========================================
+    
+    # [3-1] Height Card (Body Profile)
+    # 둥근 박스 스타일 적용 (native 'border=True' 사용)
+    # Function to render metric content (Reused for Height and Speed)
+    def render_metric_content(df, col_name, title, unit, is_inverse=False):
+        # Data Preparation
+        if col_name in df.columns:
+            # Ensure numeric
+            df[col_name] = pd.to_numeric(df[col_name], errors='coerce')
+            df_curr = df.dropna(subset=[col_name])
+            
+            if not df_curr.empty:
+                # 1. Overall Avg
+                avg_val = df_curr[col_name].mean()
+                
+                # 2. Trend by Test_ID
+                trend_df = df_curr.groupby('Test_ID')[col_name].mean().reset_index()
+                trend_df = trend_df.sort_values('Test_ID')
+                
+                # 3. Grade Avg
+                grade_avg_df = df_curr.groupby('Grade')[col_name].mean().reset_index()
+                try:
+                    grade_avg_df['Grade'] = pd.to_numeric(grade_avg_df['Grade'])
+                except:
+                    pass
+                grade_avg_df = grade_avg_df.sort_values('Grade')
+
+                st.markdown(f"""
+                    <h4 style="margin: 0 0 5px 0; font-size: 14px; color: #555;">{title}</h4>
+                """, unsafe_allow_html=True)
+                
+                col_m_main, col_m_chart = st.columns([0.4, 0.6]) # Chart 너비 확보
+                
+                with col_m_main:
+                    st.markdown(f"""
+                        <div style="margin-top: 5px;">
+                            <span style="font-size: 20px; font-weight: bold; color: #000;">{avg_val:.2f}</span>
+                            <span style="font-size: 10px; color: #555;">{unit}</span>
+                        </div>
+                        <div style="font-size: 10px; color: #888; margin-top: -2px;">Avg.</div>
+                    """, unsafe_allow_html=True)
+                    
+                with col_m_chart:
+                    fig_line = px.line(trend_df, x='Test_ID', y=col_name, markers=True)
+                    
+                    y_min = trend_df[col_name].min()
+                    y_max = trend_df[col_name].max()
+                    y_diff = y_max - y_min
+                    if y_diff == 0: y_diff = 1
+                    
+                    annotations = []
+                    for i, row in trend_df.iterrows():
+                        if row[col_name] == y_max or row[col_name] == y_min:
+                            annotations.append(dict(
+                                x=row['Test_ID'], y=row[col_name],
+                                text=f"{row[col_name]:.2f}",
+                                showarrow=False,
+                                yshift=10 if row[col_name] == y_max else -10,
+                                font=dict(size=8, color="black") # Font reduced
+                            ))
+                            
+                    fig_line.update_layout(
+                        height=60, # Sparkline 높이 축소 (75 -> 60)
+                        margin=dict(t=10, b=5, l=2, r=2), # Margin 더 축소
+                        xaxis=dict(visible=False, fixedrange=True),
+                        yaxis=dict(visible=False, fixedrange=True, range=[y_min - y_diff*0.1, y_max + y_diff*0.1]),
+                        annotations=annotations,
+                        plot_bgcolor='white',
+                        paper_bgcolor='white',
+                        showlegend=False
+                    )
+                    fig_line.update_traces(line_color='#333', line_width=1.5, marker_size=3, marker_color='#333')
+                    st.plotly_chart(fig_line, use_container_width=True, config={'displayModeBar': False})
+                    
+                # Distribution Chart
+                fig_dist = go.Figure()
+                fig_dist.add_trace(go.Scatter(
+                    x=grade_avg_df[col_name],
+                    y=[0] * len(grade_avg_df),
+                    text=grade_avg_df['Grade'],
+                    mode='text+markers',
+                    marker=dict(symbol='circle', size=3, color='#555'),
+                    textposition="bottom center",
+                    textfont=dict(size=7, weight='bold'),
+                    hoverinfo='x+text'
+                ))
+                
+                g_min = grade_avg_df[col_name].min()
+                g_max = grade_avg_df[col_name].max()
+                g_diff = g_max - g_min
+                if g_diff == 0: g_diff = 1
+                
+                fig_dist.update_layout(
+                    height=40, # 높이 축소 (50 -> 40)
+                    margin=dict(t=0, b=10, l=5, r=5), # Margin 최소화
+                    xaxis=dict(
+                        visible=False, 
+                        range=[g_min - g_diff*0.05, g_max + g_diff*0.05],
+                        showgrid=False,
+                        zeroline=False
+                    ),
+                    yaxis=dict(visible=False, range=[-1, 1], fixedrange=True),
+                    plot_bgcolor='white',
+                    paper_bgcolor='white',
+                    showlegend=False,
+                    shapes=[dict(
+                        type="line", x0=g_min, x1=g_max, y0=0, y1=0,
+                        line=dict(color="#ddd", width=2)
+                    )]
+                )
+                st.plotly_chart(fig_dist, use_container_width=True, config={'displayModeBar': False})
+            else:
+                st.info("No Data")
+        else:
+             st.info(f"{col_name} not found")
+
+    # ==========================================
+    # Middle Section: Physical Metrics Layout
+    # ==========================================
+    # Layout: Body Profile (20%) | Speed & Acceleration (50%) | Agility (30%)
+    col_profile, col_speed, col_agility = st.columns([2.0, 5.0, 3.0])
+    
+    # [3-1] Body Profile Box
+    with col_profile:
+        with st.container(border=True):
+            st.markdown("""
+                <h3 style="margin: 0; font-size: 18px;">Body Profile</h3>
+                <hr style="margin: 5px 0;">
+            """, unsafe_allow_html=True)
+            render_metric_content(df_filtered.copy(), 'Height', 'Height', 'cm')
+            
+    # [3-2] Speed & Acceleration Box
+    with col_speed:
+        with st.container(border=True):
+            st.markdown("""
+                <h3 style="margin: 0; font-size: 18px;">Speed & Acceleration</h3>
+                <hr style="margin: 5px 0;">
+            """, unsafe_allow_html=True)
+            
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                render_metric_content(df_filtered.copy(), '_5m_sec_', '5m Sprint', 'sec')
+            with c2:
+                render_metric_content(df_filtered.copy(), '_10m_sec_', '10m Sprint', 'sec')
+            with c3:
+                render_metric_content(df_filtered.copy(), '_30m_sec_', '30m Sprint', 'sec')
+                
+    # [3-3] Agility Box
+    with col_agility:
+        with st.container(border=True):
+            st.markdown("""
+                <h3 style="margin: 0; font-size: 18px;">Agility</h3>
+                <hr style="margin: 5px 0;">
+            """, unsafe_allow_html=True)
+            
+            c1_a, c2_a = st.columns(2)
+            with c1_a:
+                render_metric_content(df_filtered.copy(), 'COD_sec_', 'COD', 'sec')
+            with c2_a:
+                render_metric_content(df_filtered.copy(), 'COD_ball_sec_', 'COD ball', 'sec')
+
+    st.write("") # Valid spacing
+    
+    # ==========================================
+    # Bottom Section: Strength & Power Layout
+    # ==========================================
+    col_strength, col_power = st.columns(2)
+    
+    # [4-1] Strength Box
+    with col_strength:
+        with st.container(border=True):
+            st.markdown("""
+                <h3 style="margin: 0; font-size: 18px;">Strength</h3>
+                <hr style="margin: 5px 0;">
+            """, unsafe_allow_html=True)
+            
+            c1_s, c2_s, c3_s = st.columns(3)
+            with c1_s:
+                render_metric_content(df_filtered.copy(), 'Ham', 'Hamstring', 'N')
+            with c2_s:
+                render_metric_content(df_filtered.copy(), 'Add', 'Hip Adductor', 'N')
+            with c3_s:
+                render_metric_content(df_filtered.copy(), 'Abd', 'Hip Abductor', 'N')
+
+    # [4-2] Power Box
+    with col_power:
+        with st.container(border=True):
+            st.markdown("""
+                <h3 style="margin: 0; font-size: 18px;">Power</h3>
+                <hr style="margin: 5px 0;">
+            """, unsafe_allow_html=True)
+            
+            c1_p, c2_p, c3_p = st.columns(3)
+            with c1_p:
+                render_metric_content(df_filtered.copy(), 'CMJ_Height_cm_', 'CMJ Height', 'cm')
+            with c2_p:
+                render_metric_content(df_filtered.copy(), 'SquatJ_Height_cm_', 'Squat Jump', 'cm')
+            with c3_p:
+                render_metric_content(df_filtered.copy(), 'IMTP_N_', 'IMTP', 'N')
+
 # ==========================================
 # Tab: Team
 # ==========================================
